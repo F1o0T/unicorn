@@ -95,10 +95,22 @@ typedef struct {
     int shamt;
 } arg_shift;
 
+
 typedef struct {
     int imm;
     int rd;
 } arg_u;
+
+typedef struct {
+    int rd;
+    int rs1;
+    int len;
+} arg_sext; 
+
+typedef struct {
+    int rd;
+    int rs1;
+} arg_cpop; 
 
 typedef arg_empty arg_ecall;
 static bool trans_ecall(DisasContext *ctx, arg_ecall *a);
@@ -194,6 +206,13 @@ typedef arg_r arg_or;
 static bool trans_or(DisasContext *ctx, arg_or *a);
 typedef arg_r arg_and;
 static bool trans_and(DisasContext *ctx, arg_and *a);
+typedef arg_sext arg_sext;
+static bool trans_sext(DisasContext *ctx, arg_sext *a);
+typedef arg_r arg_pack;
+static bool trans_pack(DisasContext *ctx, arg_pack *a);
+typedef arg_cpop arg_cpop;
+static bool trans_cpop(DisasContext *ctx, arg_cpop *a);
+static bool trans_andn(DisasContext *ctx, arg_r *a);
 typedef arg_decode_insn3216 arg_fence;
 static bool trans_fence(DisasContext *ctx, arg_fence *a);
 typedef arg_empty arg_fence_i;
@@ -414,6 +433,20 @@ static void decode_insn32_extract_i(DisasContext *ctx, arg_i *a, uint32_t insn)
     a->rd = extract32(insn, 7, 5);
 }
 
+static void decode_insn32_extract_sext_params(DisasContext *ctx, arg_sext *a, uint32_t insn)
+{
+    // Will be used to indicate if it is sext.b or sext.h
+    a->len = extract32(insn, 20, 4);
+    a->rs1 = extract32(insn, 15, 5);
+    a->rd = extract32(insn, 7, 5);
+}
+
+static void decode_insn32_extract_cpop_params(DisasContext *ctx, arg_cpop *a, uint32_t insn)
+{
+    a->rs1 = extract32(insn, 15, 5);
+    a->rd = extract32(insn, 7, 5);
+}
+
 static void decode_insn32_extract_j(DisasContext *ctx, arg_j *a, uint32_t insn)
 {
     a->imm = ex_shift_1(ctx, deposit32(deposit32(deposit32(extract32(insn, 21, 10), 10, 22, extract32(insn, 20, 1)), 11, 21, extract32(insn, 12, 8)), 19, 13, sextract32(insn, 31, 1)));
@@ -508,6 +541,8 @@ static bool decode_insn32(DisasContext *ctx, uint32_t insn)
         arg_s f_s;
         arg_shift f_shift;
         arg_u f_u;
+        arg_sext f_sext;
+        arg_cpop f_cpop;
     } u;
 
     switch (insn & 0x0000007f) {
@@ -580,19 +615,36 @@ static bool decode_insn32(DisasContext *ctx, uint32_t insn)
         switch ((insn >> 12) & 0x7) {
         case 0x0:
             /* ........ ........ .000.... .0010011 */
-            /* /home/me/projects/unicorn2/qemu-5.0.0-build/target/riscv/insn32.decode:104 */
+            /* /home/me/projects/unicorn2/qemu-5.0.0-build/target/riscv/insn32.decode:104
+             */
             decode_insn32_extract_i(ctx, &u.f_i, insn);
-            if (trans_addi(ctx, &u.f_i)) return true;
+            if (trans_addi(ctx, &u.f_i))
+                return true;
             return false;
         case 0x1:
             /* ........ ........ .001.... .0010011 */
-            decode_insn32_extract_sh(ctx, &u.f_shift, insn);
             switch ((insn >> 30) & 0x3) {
             case 0x0:
+                decode_insn32_extract_sh(ctx, &u.f_shift, insn);
                 /* 00...... ........ .001.... .0010011 */
-                /* /home/me/projects/unicorn2/qemu-5.0.0-build/target/riscv/insn32.decode:110 */
-                if (trans_slli(ctx, &u.f_shift)) return true;
+                /* /home/me/projects/unicorn2/qemu-5.0.0-build/target/riscv/insn32.decode:110
+                 */
+                if (trans_slli(ctx, &u.f_shift))
+                    return true;
                 return false;
+            case 0x1:
+                switch ((insn >> 20) & 0x1f){
+                case 0x4:
+                case 0x5: 
+                    decode_insn32_extract_sext_params(ctx, &u.f_sext, insn);
+                    if (trans_sext(ctx, &u.f_sext))
+                        return true;
+                case 0x2:
+                    decode_insn32_extract_cpop_params(ctx, &u.f_cpop, insn);
+                    if (trans_cpop(ctx, &u.f_cpop))
+                        return true;
+                return false;
+                }
             }
             return false;
         case 0x2:
@@ -857,6 +909,26 @@ static bool decode_insn32(DisasContext *ctx, uint32_t insn)
             if (trans_sra(ctx, &u.f_r)) return true;
             return false;
         }
+        switch (insn & 0x08000000){
+        case 0x08000000:
+            switch(insn & 0x00007000){
+            case 0x00004000:
+                // pack case
+                if (trans_pack(ctx, &u.f_r)) return true;
+                return false;
+            case 0x00007000:
+                // packh and packw cases
+                // https://five-embeddev.com/riscv-bitmanip/draft/bitmanip.html#insns-pack
+                return false;
+                }
+        }
+        switch (insn & 0xF7000000){
+            case 0x40000000:
+                // andn case 
+                if (trans_andn(ctx, &u.f_r)) return true;
+                return false;
+        }
+        
         return false;
     case 0x00000037:
         /* ........ ........ ........ .0110111 */

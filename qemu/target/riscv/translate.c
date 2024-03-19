@@ -689,6 +689,148 @@ static bool gen_arith_div_uw(TCGContext *tcg_ctx, arg_r *a,
 }
 
 #endif
+#include "exec/helper-proto.h"
+#include "exec/helper-gen.h"
+
+static inline bool gen_cpop(TCGContext *tcg_ctx, arg_cpop *a)
+{
+    TCGv t = tcg_temp_new(tcg_ctx);
+
+    gen_get_gpr(tcg_ctx, t, a->rs1);
+
+    tcg_gen_ctpop_i32(tcg_ctx, t, t);
+
+    gen_set_gpr(tcg_ctx, a->rd, t);
+
+    tcg_temp_free(tcg_ctx, t);
+    
+    return true;
+}
+
+static inline bool gen_sext(TCGContext *tcg_ctx, arg_sext *a)
+{
+    TCGv t = tcg_temp_new(tcg_ctx);
+
+    gen_get_gpr(tcg_ctx, t, a->rs1);
+
+    if(a->len == 0x4) {
+        // It is sext.b, send 8 as the number of bits to be extracted. 
+        tcg_gen_sextract_tl(tcg_ctx, t, t, 0, 8);
+    } else if (a->len == 0x5) {
+        // It is sext.h, send 16 as the number of bits to be extracted. 
+        tcg_gen_sextract_tl(tcg_ctx, t, t, 0, 16);
+    }
+ 
+    gen_set_gpr(tcg_ctx, a->rd, t);
+
+    tcg_temp_free(tcg_ctx, t);
+    
+    return true;
+}
+
+
+// static inline bool gen_pack(TCGContext *tcg_ctx, arg_pack *a)
+// {
+//     TCGv t1 = tcg_temp_new(tcg_ctx);
+
+//     // 16 LSBs of rs1
+//     gen_get_gpr(tcg_ctx, t1, a->rs1);
+//     tcg_gen_extract_tl(tcg_ctx, t1, t1, 0, 16);
+
+//     if(a->rs2 == 0x0) {
+
+//         // If rs2 is zero, then no need to contine, store the result in rd, and exit. 
+//         gen_set_gpr(tcg_ctx, a->rd, t1);
+//         printf("Here\n");
+        
+//     } else {
+
+//         TCGv t2 = tcg_temp_new(tcg_ctx);
+//         TCGv t3 = tcg_temp_new(tcg_ctx);
+
+//         // 16 LSB of rs2
+//         gen_get_gpr(tcg_ctx, t2, a->rs2);
+//         tcg_gen_extract_tl(tcg_ctx, t2, t2, 16, 16);
+
+//         // Shifts the 16 LSBs of rs2 to the left 16 times. 
+//         tcg_gen_shli_tl(tcg_ctx, t2, t2, 16); 
+
+//         // Add the results of 16 LSBs of rs1 to the shifted 16 LSBs of rs2    
+//         tcg_gen_add_tl(tcg_ctx, t3, t1, t2);
+
+//         // Store the result in rd
+//         gen_set_gpr(tcg_ctx, a->rd, t3);
+        
+//         tcg_temp_free(tcg_ctx, t2);
+//         tcg_temp_free(tcg_ctx, t3);
+//     }
+
+//     tcg_temp_free(tcg_ctx, t1);
+
+//     return true;
+// }
+
+static inline bool gen_pack(TCGContext *tcg_ctx, arg_pack *a)
+{
+    TCGv t1 = tcg_temp_new(tcg_ctx);
+    TCGv t2 = tcg_temp_new(tcg_ctx);
+    TCGv t3 = tcg_temp_new(tcg_ctx);
+
+    // 16 LSBs of rs1
+    gen_get_gpr(tcg_ctx, t1, a->rs1);
+    tcg_gen_extract_tl(tcg_ctx, t1, t1, 0, 16);
+
+    // 16 LSB of rs2
+    gen_get_gpr(tcg_ctx, t2, a->rs2);
+    tcg_gen_extract_tl(tcg_ctx, t2, t2, 16, 16);
+
+    // Shifts the 16 LSBs of rs2 to the left 16 times. 
+    tcg_gen_shli_tl(tcg_ctx, t2, t2, 16); 
+
+    // Add the results of 16 LSBs of rs1 to the shifted 16 LSBs of rs2    
+    tcg_gen_add_tl(tcg_ctx, t3, t1, t2);
+
+    // Store the result in rd
+    gen_set_gpr(tcg_ctx, a->rd, t3);
+
+    tcg_temp_free(tcg_ctx, t1);
+    tcg_temp_free(tcg_ctx, t2);
+    tcg_temp_free(tcg_ctx, t3);
+    
+    return true;
+}
+
+static inline bool gen_andn(TCGContext *tcg_ctx, arg_r *a)
+{
+    TCGv t1 = tcg_temp_new(tcg_ctx);
+    TCGv t2 = tcg_temp_new(tcg_ctx);
+    TCGv t3 = tcg_temp_new(tcg_ctx);
+
+    // 16 LSBs of rs1
+    gen_get_gpr(tcg_ctx, t1, a->rs1);
+    tcg_gen_extract_tl(tcg_ctx, t1, t1, 0, 16);
+
+    // 16 LSB of rs2
+    gen_get_gpr(tcg_ctx, t2, a->rs2);
+    tcg_gen_extract_tl(tcg_ctx, t2, t2, 16, 16);
+
+    // Shifts the 16 LSBs of rs2 to the left 16 times. 
+    tcg_gen_shli_tl(tcg_ctx, t2, t2, 16); 
+
+    // Add the results of 16 LSBs of rs1 to the shifted 16 LSBs of rs2    
+    tcg_gen_add_tl(tcg_ctx, t3, t1, t2);
+
+    // Store the result in rd
+    gen_set_gpr(tcg_ctx, a->rd, t3);
+
+    tcg_temp_free(tcg_ctx, t1);
+    tcg_temp_free(tcg_ctx, t2);
+    tcg_temp_free(tcg_ctx, t3);
+    
+    return true;
+}
+
+
 
 static bool gen_arith(TCGContext *tcg_ctx, arg_r *a,
                       void(*func)(TCGContext *, TCGv, TCGv, TCGv))

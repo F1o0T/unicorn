@@ -379,6 +379,31 @@ static bool trans_and(DisasContext *ctx, arg_and *a)
     return gen_arith(tcg_ctx, a, &tcg_gen_and_tl);
 }
 
+static bool trans_sext(DisasContext *ctx, arg_sext *a)
+{
+    TCGContext *tcg_ctx = ctx->uc->tcg_ctx;
+    return gen_sext(tcg_ctx, a);
+}
+
+
+static bool trans_cpop(DisasContext *ctx, arg_cpop *a)
+{
+    TCGContext *tcg_ctx = ctx->uc->tcg_ctx;
+    gen_cpop(tcg_ctx, a);
+    return true;
+}
+
+static bool trans_pack(DisasContext *ctx, arg_pack *a)
+{
+    TCGContext *tcg_ctx = ctx->uc->tcg_ctx;
+    return gen_pack(tcg_ctx, a);
+}
+static bool trans_andn(DisasContext *ctx, arg_r *a)
+{
+    TCGContext *tcg_ctx = ctx->uc->tcg_ctx;
+    return gen_andn(tcg_ctx, a);
+}
+
 #ifdef TARGET_RISCV64
 static bool trans_addiw(DisasContext *ctx, arg_addiw *a)
 {

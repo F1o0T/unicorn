@@ -100,6 +100,17 @@ typedef struct {
     int rd;
 } arg_u;
 
+typedef struct {
+    int rd;
+    int rs1;
+    int len;
+} arg_sext; 
+
+typedef struct {
+    int rd;
+    int rs1;
+} arg_cpop; 
+
 typedef arg_empty arg_ecall;
 static bool trans_ecall(DisasContext *ctx, arg_ecall *a);
 typedef arg_empty arg_ebreak;
@@ -194,6 +205,14 @@ typedef arg_r arg_or;
 static bool trans_or(DisasContext *ctx, arg_or *a);
 typedef arg_r arg_and;
 static bool trans_and(DisasContext *ctx, arg_and *a);
+
+typedef arg_sext arg_sext;
+static bool trans_sext(DisasContext *ctx, arg_sext *a);
+typedef arg_r arg_pack;
+static bool trans_pack(DisasContext *ctx, arg_pack *a);
+typedef arg_cpop arg_cpop;
+static bool trans_cpop(DisasContext *ctx, arg_cpop *a);
+
 typedef arg_decode_insn3216 arg_fence;
 static bool trans_fence(DisasContext *ctx, arg_fence *a);
 typedef arg_empty arg_fence_i;
